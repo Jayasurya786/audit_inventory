@@ -1,8 +1,17 @@
+const mongoose = require('mongoose');
 const Log = require('../models/Log');
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
-const ALLOWED_SORT_FIELDS = new Set(['timestamp', 'severity', 'status', 'actor', 'region', 'resourceType', 'action']);
+const ALLOWED_SORT_FIELDS = new Set([
+    'timestamp',
+    'severity',
+    'status',
+    'actor',
+    'region',
+    'resourceType',
+    'action'
+]);
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -16,14 +25,24 @@ const parseOptionalString = (value) => {
 
 const buildLogsQuery = (query) => {
     const filter = {};
-    const exactFilterFields = ['severity', 'status', 'actor', 'role', 'action', 'resource', 'resourceType', 'ipAddress', 'region'];
+    const exactFilterFields = [
+        'severity',
+        'status',
+        'actor',
+        'role',
+        'action',
+        'resource',
+        'resourceType',
+        'ipAddress',
+        'region'
+    ];
 
     for (const field of exactFilterFields) {
         const value = parseOptionalString(query[field]);
 
         if (value) {
             filter[field] = value;
-    }
+        }
     }
 
     const search = parseOptionalString(query.search);
@@ -46,7 +65,19 @@ const buildLogsQuery = (query) => {
     return filter;
 };
 
+const isDatabaseReady = () => mongoose.connection.readyState === 1;
+
+const respondDatabaseUnavailable = (res) =>
+    res.status(503).json({
+        success: false,
+        message: 'Database is not connected yet. Please try again in a moment.'
+    });
+
 exports.bulkUploadLogs = async (req, res) => {
+    if (!isDatabaseReady()) {
+        return respondDatabaseUnavailable(res);
+    }
+
     try {
         const logs = req.body;
 
@@ -55,7 +86,8 @@ exports.bulkUploadLogs = async (req, res) => {
                 success: false,
                 message: 'Invalid payload, expected a non-empty array.'
             });
-    }
+        }
+
         const result = await Log.insertMany(logs, { ordered: false });
 
         return res.status(201).json({
@@ -71,7 +103,7 @@ exports.bulkUploadLogs = async (req, res) => {
                 insertedCount: error.result?.nInserted || 0,
                 errorsCount: error.writeErrors ? error.writeErrors.length : 0
             });
-    }
+        }
 
         return res.status(500).json({
             success: false,
@@ -82,6 +114,10 @@ exports.bulkUploadLogs = async (req, res) => {
 };
 
 exports.getLogs = async (req, res) => {
+    if (!isDatabaseReady()) {
+        return respondDatabaseUnavailable(res);
+    }
+
     try {
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
