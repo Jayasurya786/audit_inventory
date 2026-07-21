@@ -7,8 +7,13 @@ const mongoose = require('mongoose');
 const logRoutes = require('./routes/logRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const parsedPort = Number.parseInt(process.env.PORT, 10);
+const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 5000;
 const MONGODB_URL = process.env.MONGODB_URL || process.env.MONGO_URL;
+
+if (process.env.PORT && (!Number.isInteger(parsedPort) || parsedPort <= 0)) {
+    console.warn(`Ignoring invalid PORT value: ${process.env.PORT}`);
+}
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -22,7 +27,7 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is listening on port ${PORT}`);
 });
 
