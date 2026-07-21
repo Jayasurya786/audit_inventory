@@ -28,6 +28,8 @@ const normalizeMongoUrl = (value) => {
 
 const MONGODB_URL = normalizeMongoUrl(process.env.MONGODB_URL || process.env.MONGO_URL);
 
+mongoose.set('bufferCommands', false);
+
 if (process.env.PORT && (!Number.isInteger(parsedPort) || parsedPort <= 0)) {
     console.warn(`Ignoring invalid PORT value: ${process.env.PORT}`);
 }
@@ -38,9 +40,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/logs', logRoutes);
 
 app.get('/api/health', (req, res) => {
+    const dbConnected = mongoose.connection.readyState === 1;
+
     res.status(200).json({
         status: 'ok',
-        message: 'Server is running'
+        message: 'Server is running',
+        database: dbConnected ? 'connected' : 'disconnected'
     });
 });
 
@@ -59,7 +64,7 @@ if (!MONGODB_URL.startsWith('mongodb://') && !MONGODB_URL.startsWith('mongodb+sr
 }
 
 mongoose
-    .connect(MONGODB_URL)
+    .connect(MONGODB_URL, { serverSelectionTimeoutMS: 5000 })
     .then(() => {
         console.log('Connected to MongoDB');
     })
