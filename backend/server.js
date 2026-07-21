@@ -9,7 +9,24 @@ const logRoutes = require('./routes/logRoutes');
 const app = express();
 const parsedPort = Number.parseInt(process.env.PORT, 10);
 const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 5000;
-const MONGODB_URL = process.env.MONGODB_URL || process.env.MONGO_URL;
+const normalizeMongoUrl = (value) => {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    const trimmed = value.trim();
+
+    if (
+        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+        return trimmed.slice(1, -1).trim();
+    }
+
+    return trimmed;
+};
+
+const MONGODB_URL = normalizeMongoUrl(process.env.MONGODB_URL || process.env.MONGO_URL);
 
 if (process.env.PORT && (!Number.isInteger(parsedPort) || parsedPort <= 0)) {
     console.warn(`Ignoring invalid PORT value: ${process.env.PORT}`);
@@ -33,6 +50,11 @@ app.listen(PORT, '0.0.0.0', () => {
 
 if (!MONGODB_URL) {
     console.error('Missing MongoDB connection string. Set MONGODB_URL or MONGO_URL in backend/.env');
+    process.exit(1);
+}
+
+if (!MONGODB_URL.startsWith('mongodb://') && !MONGODB_URL.startsWith('mongodb+srv://')) {
+    console.error('Invalid MongoDB connection string. It must start with mongodb:// or mongodb+srv://');
     process.exit(1);
 }
 
